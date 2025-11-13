@@ -1,0 +1,87 @@
+@page "/myorders"
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@inject OrderState OrderState
+
+<div class="main">
+    @if (ordersWithStatus == null)
+    {
+        <text>Loading...</text>
+    }
+    else if (!ordersWithStatus.Any())
+    {
+        <h2>No orders placed</h2>
+        <a class="btn btn-success" href="">Order some pizza</a>
+    }
+    else
+    {
+        <div class="list-group orders-list">
+            @foreach (var item in ordersWithStatus)
+            {
+                <div class="list-group-item">
+                    <div class="col">
+                        <h5>@item.Order.CreatedTime.ToLongDateString()</h5>
+                        Items:
+                        <strong>@item.Order.Pizzas.Count()</strong>;
+                        Total price:
+                        <strong>GH₵@item.Order.GetFormattedTotalPrice()</strong>
+                    </div>
+                    <div class="col">
+                        Status: <strong>@item.StatusText</strong>
+                    </div>
+                    @if (@item.StatusText != "Delivered")
+                    {
+                        <div class="col flex-grow-0">
+                            <NavLink href=@($"myorders/{item.Order.OrderId}") class="btn btn-success">
+                                Track &gt;
+                            </NavLink>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<div class="sidebar">
+    @if (order.Pizzas.Any())
+    {
+        <div class="order-contents">
+            <h2>Your order</h2>
+
+            @foreach (var configuredPizza in order.Pizzas)
+            {
+              <div class="cart-item">
+                  <div class="title">@(configuredPizza.Size)" @configuredPizza.Special.Name</div>
+                  <div class="item-price">
+                      @configuredPizza.GetFormattedTotalPrice()
+                  </div>
+                  <a @onclick="@(() => OrderState.RemoveConfiguredPizza(configuredPizza))" class="delete-item">x</a>
+              </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="empty-cart">Choose a pizza<br>to get started</div>
+    }
+
+    <div class="order-total @(order.Pizzas.Any() ? "" : "hidden")">
+        Total:
+        <span class="total-price">@order.GetFormattedTotalPrice()</span>
+        <a href="checkout" class="@(OrderState.Order.Pizzas.Count == 0 ? "btn btn-warning disabled" : "btn btn-warning")">
+            Order >
+        </a>
+    </div>
+</div>
+
+@code {
+    List<OrderWithStatus> ordersWithStatus = new List<OrderWithStatus>();
+    Order order => OrderState.Order;
+
+    protected override async Task OnParametersSetAsync()
+    {
+      ordersWithStatus = await HttpClient.GetFromJsonAsync<List<OrderWithStatus>>(
+          $"{NavigationManager.BaseUri}orders");
+    }
+}

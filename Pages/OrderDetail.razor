@@ -1,0 +1,131 @@
+@page "/myorders/{orderId:int}"
+@using Microsoft.AspNetCore.Components.Routing
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@inject OrderState OrderState
+
+<div class="main">
+    @if (orderWithStatus == null)
+    {
+        <text>Loading...</text>
+    }
+    else if (invalidOrder)
+    {
+        <h2>Order not found</h2>
+        <p>We couldn't find this order.</p>
+        <NavLink href="myorders" class="btn btn-primary">Back to Orders</NavLink>
+    }
+    else
+    {
+        <div class="track-order">
+            <div class="track-order-title">
+                <h2>
+                    Order placed @orderWithStatus.Order.CreatedTime.ToLongDateString()
+                </h2>
+                <p class="ml-auto mb-0">
+                    Status: <strong>@orderWithStatus.StatusText</strong>
+                </p>
+            </div>
+            <div class="track-order-body">
+                <div class="track-order-details">
+                    @foreach (var pizza in orderWithStatus.Order.Pizzas)
+                    {
+                        <p>
+                            <strong>
+                                @(pizza.Size)"
+                                @pizza.Special.Name
+                                (GH₵@pizza.GetFormattedTotalPrice())
+                            </strong>
+                        </p>
+                    }
+                </div>
+                <div class="track-order-status">
+                    <div class="status-item @GetStatusClass("Preparing")">
+                        <div class="status-icon">📋</div>
+                        <div class="status-label">Preparing</div>
+                    </div>
+                    <div class="status-item @GetStatusClass("Out for delivery")">
+                        <div class="status-icon">🚚</div>
+                        <div class="status-label">Out for delivery</div>
+                    </div>
+                    <div class="status-item @GetStatusClass("Delivered")">
+                        <div class="status-icon">✅</div>
+                        <div class="status-label">Delivered</div>
+                    </div>
+                </div>
+            </div>
+            <div class="track-order-footer">
+                <p><strong>Total price: GH₵@orderWithStatus.Order.GetFormattedTotalPrice()</strong></p>
+                <NavLink href="myorders" class="btn btn-primary">Back to Orders</NavLink>
+            </div>
+        </div>
+    }
+</div>
+
+<div class="sidebar">
+    @if (order.Pizzas.Any())
+    {
+        <div class="order-contents">
+            <h2>Your order</h2>
+
+            @foreach (var configuredPizza in order.Pizzas)
+            {
+              <div class="cart-item">
+                  <div class="title">@(configuredPizza.Size)" @configuredPizza.Special.Name</div>
+                  <div class="item-price">
+                      @configuredPizza.GetFormattedTotalPrice()
+                  </div>
+                  <a @onclick="@(() => OrderState.RemoveConfiguredPizza(configuredPizza))" class="delete-item">x</a>
+              </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="empty-cart">Choose a pizza<br>to get started</div>
+    }
+
+    <div class="order-total @(order.Pizzas.Any() ? "" : "hidden")">
+        Total:
+        <span class="total-price">@order.GetFormattedTotalPrice()</span>
+        <a href="checkout" class="@(OrderState.Order.Pizzas.Count == 0 ? "btn btn-warning disabled" : "btn btn-warning")">
+            Order >
+        </a>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int OrderId { get; set; }
+
+    OrderWithStatus orderWithStatus;
+    bool invalidOrder = false;
+    Order order => OrderState.Order;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            orderWithStatus = await HttpClient.GetFromJsonAsync<OrderWithStatus>(
+                $"{NavigationManager.BaseUri}orders/{OrderId}");
+        }
+        catch (Exception)
+        {
+            invalidOrder = true;
+        }
+    }
+
+    string GetStatusClass(string status)
+    {
+        if (orderWithStatus.StatusText == status)
+        {
+            return "status-current";
+        }
+        else if (orderWithStatus.StatusText == "Delivered" ||
+                 (orderWithStatus.StatusText == "Out for delivery" && status == "Preparing"))
+        {
+            return "status-complete";
+        }
+        return "";
+    }
+}

@@ -1,0 +1,80 @@
+@page "/checkout"
+@inject OrderState OrderState
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+
+<div class="main">
+    <div class="checkout-cols">
+        <div class="checkout-order-details">
+            <h4>Review order</h4>
+            @foreach (var pizza in Order.Pizzas)
+            {
+                <p>
+                    <strong>
+                        @(pizza.Size)"
+                        @pizza.Special.Name
+                        (GH₵@pizza.GetFormattedTotalPrice())
+                    </strong>
+                </p>
+            }
+
+            <p>
+                <strong>
+                    Total price:
+                    GH₵@Order.GetFormattedTotalPrice()
+                </strong>
+            </p>
+        </div>
+    </div>
+
+    <button class="checkout-button btn btn-warning" @onclick="PlaceOrder" disabled=@isSubmitting>
+        Place order
+    </button>
+</div>
+
+<div class="sidebar">
+    @if (Order.Pizzas.Any())
+    {
+        <div class="order-contents">
+            <h2>Your order</h2>
+
+            @foreach (var configuredPizza in Order.Pizzas)
+            {
+              <div class="cart-item">
+                  <div class="title">@(configuredPizza.Size)" @configuredPizza.Special.Name</div>
+                  <div class="item-price">
+                      @configuredPizza.GetFormattedTotalPrice()
+                  </div>
+                  <a @onclick="@(() => OrderState.RemoveConfiguredPizza(configuredPizza))" class="delete-item">x</a>
+              </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="empty-cart">Choose a pizza<br>to get started</div>
+    }
+
+    <div class="order-total @(Order.Pizzas.Any() ? "" : "hidden")">
+        Total:
+        <span class="total-price">@Order.GetFormattedTotalPrice()</span>
+        <a href="checkout" class="@(OrderState.Order.Pizzas.Count == 0 ? "btn btn-warning disabled" : "btn btn-warning")">
+            Order >
+        </a>
+    </div>
+</div>
+
+@code {
+    Order Order => OrderState.Order;
+
+    bool isSubmitting;
+
+    async Task PlaceOrder()
+    {
+        isSubmitting = true;
+        var response = await HttpClient.PostAsJsonAsync(NavigationManager.BaseUri + "orders", OrderState.Order);
+        var newOrderId= await response.Content.ReadFromJsonAsync<int>();
+        OrderState.ResetOrder();
+        NavigationManager.NavigateTo($"myorders/{newOrderId}");
+    }
+}
